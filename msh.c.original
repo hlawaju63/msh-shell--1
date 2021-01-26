@@ -1,0 +1,187 @@
+#define _GNU_SOURCE
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/wait.h>
+#include <string.h>
+#include <signal.h>
+#include <unistd.h>
+
+#define WHITESPACE " \t\n" 	//Whitespace will seperate our tokens
+
+
+#define MAX_COMMAND_SIZE 255 	//The maximum command-line size
+
+#define MAX_NUM_ARGUMENTS 10	//MAV shell only supports five arguments 
+
+int main()
+{
+	char *cmd_str =(char*) malloc(MAX_COMMAND_SIZE);
+	
+	int pid_index = 0;		
+	int pid_lt_15 = 1;
+	pid_t pid_history[15];
+	
+	int command_index = 0;		
+	int command_lt_15 = 1;
+	int command_history[15];
+
+
+	while(1)
+	{
+		//Print out the msh prompt
+		printf("msh> ");
+	
+		//Read the command from	commandline. The
+		//maximum command that will be read is MAX_COMMAND_SIZE
+		//THIS while command will wait here until the user
+		//inputs something since fets returns NULL when there
+		// is no input
+		
+		while(!fgets (cmd_str, MAX_COMMAND_SIZE, stdin) );
+
+
+		/* PArse input */
+		char *token[MAX_NUM_ARGUMENTS];
+
+		int token_count = 0;
+
+		//Pointer to point to the token
+		// parses by strsep
+		char *argument_ptr;
+
+		char *working_str = strdup( cmd_str );
+
+		// we are going to	move the working_str pointer so
+		// keep track of its original value so we can deallocate
+		// the correct amount at the end
+		char *working_root = working_str;
+		// Tokenize the input string with whitespace used as the delimeter
+		while( ( (argument_ptr = strsep(&working_str, WHITESPACE ) ) != NULL) &&
+		(token_count<MAX_NUM_ARGUMENTS))
+		{
+		token[token_count] = strndup( argument_ptr, MAX_COMMAND_SIZE );
+		if( strlen( token[token_count] ) == 0)
+		{
+			token[token_count] = NULL;
+		}
+		token_count++;
+		}//string tokenize while loop
+
+
+		//Now print the tokenized input as a debug check
+
+		//asking for user input again if user enters WHITESPACES only	
+		if(token[0] == NULL)
+		{
+			continue;
+
+		}
+
+		//Exiting command if user enters quit or exit
+		if( strcmp(token[0], "quit") == 0 || strcmp(token[0], "exit") == 0 )
+		{ 
+			free(cmd_str);
+			exit(0);
+		}
+	
+
+		// Checking if user wants to change directory,
+		// changing directory before forking a process
+		// since we need to get acess of the list of directories from 
+		// current running process.
+
+		if( strcmp( token[0],  "cd" ) == 0)
+                {
+	          chdir( token[1] );			
+                  continue;
+                }
+
+		if( strcmp( token[], "showpids )  ==  0 )
+		{
+			for(int i = 0; i <  15; i ++)
+			{
+				if(pid_lt_15)
+				{
+					if(i >=  pid_index) break;
+					printf("%d: %d", i, pid_history[i]);
+				}		
+				else
+				{
+					printf("%d: %d", i, pid_history[pid_index++]);
+					if(pid_index > 14 )  pid_index = 0;
+					
+				}
+			}
+
+		}
+			
+
+ 
+		pid_t child_pid = fork();
+		
+
+ 		//Assigning PID every time new process is forked	
+
+		pid_history[pid_index++] = child_pid;
+
+		if(pid_index > 14)
+		{
+			pid_index = 0;
+			pid_lt_15 = 0;
+		}
+//printf("\nthe value of strcmp %d\n\n\n", strcmp( token[0], "showpids"));	
+
+		if( child_pid == 0 )
+		{
+
+		if( ( strcmp( token[0], "showpids"))  == 0 )
+		{
+			for(int i = 0; i < 15; i++)
+			{
+				if(pid_lt_15)
+				{
+///bin/bash: indent: command not found
+						break;
+					printf("%d: %d\n", i , pid_history[i] );
+				}
+				else
+				{
+					printf("%d: %d...this is printing\n ", i, pid_history[pid_index] );
+					if( pid_index > 14)
+						pid_index = 0;
+				}
+			}
+
+		}
+	
+
+///////////////
+	
+			int ret	= execvp(token[0], &token[0] );
+	
+			if(ret == -1)
+			{
+ 					printf(" %s: Command not found\n", token[0]);		 
+			}
+		
+		}
+		else
+		{
+			int status;
+			wait( &status);	
+		}
+
+		free(working_root );
+
+	
+	}//outmost while
+
+	
+
+	free(cmd_str);
+	return 0;
+}
+
+
